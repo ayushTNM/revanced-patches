@@ -1,16 +1,13 @@
 package app.revanced.patches.youtube.utils.videoid.general.patch
 
-import app.revanced.extensions.toErrorResult
+import app.revanced.extensions.exception
 import app.revanced.patcher.data.BytecodeContext
-import app.revanced.patcher.data.toMethodWalker
 import app.revanced.patcher.extensions.InstructionExtensions.addInstruction
 import app.revanced.patcher.extensions.InstructionExtensions.addInstructions
 import app.revanced.patcher.extensions.InstructionExtensions.getInstruction
 import app.revanced.patcher.extensions.or
 import app.revanced.patcher.fingerprint.method.impl.MethodFingerprint.Companion.resolve
 import app.revanced.patcher.patch.BytecodePatch
-import app.revanced.patcher.patch.PatchResult
-import app.revanced.patcher.patch.PatchResultSuccess
 import app.revanced.patcher.patch.annotations.DependsOn
 import app.revanced.patcher.util.proxy.mutableTypes.MutableMethod
 import app.revanced.patcher.util.proxy.mutableTypes.MutableMethod.Companion.toMutable
@@ -21,15 +18,13 @@ import app.revanced.patches.youtube.utils.videoid.general.fingerprint.SeekFinger
 import app.revanced.patches.youtube.utils.videoid.general.fingerprint.VideoIdFingerprint
 import app.revanced.patches.youtube.utils.videoid.general.fingerprint.VideoIdParentFingerprint
 import app.revanced.patches.youtube.utils.videoid.general.fingerprint.VideoLengthFingerprint
-import app.revanced.patches.youtube.utils.videoid.general.fingerprint.VideoTimeHighPrecisionFingerprint
-import app.revanced.patches.youtube.utils.videoid.general.fingerprint.VideoTimeHighPrecisionParentFingerprint
 import app.revanced.util.integrations.Constants.VIDEO_PATH
-import org.jf.dexlib2.AccessFlags
-import org.jf.dexlib2.builder.MutableMethodImplementation
-import org.jf.dexlib2.iface.instruction.OneRegisterInstruction
-import org.jf.dexlib2.immutable.ImmutableMethod
-import org.jf.dexlib2.immutable.ImmutableMethodParameter
-import org.jf.dexlib2.util.MethodUtil
+import com.android.tools.smali.dexlib2.AccessFlags
+import com.android.tools.smali.dexlib2.builder.MutableMethodImplementation
+import com.android.tools.smali.dexlib2.iface.instruction.OneRegisterInstruction
+import com.android.tools.smali.dexlib2.immutable.ImmutableMethod
+import com.android.tools.smali.dexlib2.immutable.ImmutableMethodParameter
+import com.android.tools.smali.dexlib2.util.MethodUtil
 
 @DependsOn([PlayerTypeHookPatch::class])
 class VideoIdPatch : BytecodePatch(
@@ -38,12 +33,10 @@ class VideoIdPatch : BytecodePatch(
         PlayerInitFingerprint,
         SeekFingerprint,
         VideoIdParentFingerprint,
-        VideoLengthFingerprint,
-        VideoTimeHighPrecisionFingerprint,
-        VideoTimeHighPrecisionParentFingerprint
+        VideoLengthFingerprint
     )
 ) {
-    override fun execute(context: BytecodeContext): PatchResult {
+    override fun execute(context: BytecodeContext) {
 
         PlayerInitFingerprint.result?.let { parentResult ->
             playerInitMethod =
@@ -57,10 +50,10 @@ class VideoIdPatch : BytecodePatch(
                     val seekHelperMethod = ImmutableMethod(
                         definingClass,
                         "seekTo",
-                        listOf(ImmutableMethodParameter("J", null, "time")),
+                        listOf(ImmutableMethodParameter("J", annotations, "time")),
                         "Z",
                         AccessFlags.PUBLIC or AccessFlags.FINAL,
-                        null, null,
+                        annotations, null,
                         MutableMethodImplementation(4)
                     ).toMutable()
 
@@ -77,27 +70,8 @@ class VideoIdPatch : BytecodePatch(
 
                     parentResult.mutableClass.methods.add(seekHelperMethod)
                 }
-            } ?: return SeekFingerprint.toErrorResult()
-        } ?: return PlayerInitFingerprint.toErrorResult()
-
-        /**
-         * Set the high precision video time method
-         */
-        VideoTimeHighPrecisionParentFingerprint.result?.let { parentResult ->
-            VideoTimeHighPrecisionFingerprint.also {
-                it.resolve(
-                    context,
-                    parentResult.classDef
-                )
-            }.result?.mutableMethod?.let { method ->
-                highPrecisionTimeMethod = method
-            } ?: return VideoTimeHighPrecisionFingerprint.toErrorResult()
-        } ?: return VideoTimeHighPrecisionParentFingerprint.toErrorResult()
-
-        /**
-         * Hook the methods which set the time
-         */
-        highPrecisionTimeHook(INTEGRATIONS_CLASS_DESCRIPTOR, "setVideoTime")
+            } ?: throw SeekFingerprint.exception
+        } ?: throw PlayerInitFingerprint.exception
 
         /**
          * Set current video time
@@ -106,7 +80,12 @@ class VideoIdPatch : BytecodePatch(
             timeMethod = context.toMethodWalker(it.method)
                 .nextMethod(it.scanResult.patternScanResult!!.startIndex, true)
                 .getMethod() as MutableMethod
-        } ?: return PlayerControllerSetTimeReferenceFingerprint.toErrorResult()
+        } ?: throw PlayerControllerSetTimeReferenceFingerprint.exception
+
+        /**
+         * Hook the methods which set the time
+         */
+        videoTimeHook(INTEGRATIONS_CLASS_DESCRIPTOR, "setVideoTime")
 
         /**
          * Set current video length
@@ -122,7 +101,7 @@ class VideoIdPatch : BytecodePatch(
                     "invoke-static {v$primaryRegister, v$secondaryRegister}, $INTEGRATIONS_CLASS_DESCRIPTOR->setVideoLength(J)V"
                 )
             }
-        } ?: return VideoLengthFingerprint.toErrorResult()
+        } ?: throw VideoLengthFingerprint.exception
 
         VideoIdParentFingerprint.result?.let { parentResult ->
             VideoIdFingerprint.also {
@@ -137,10 +116,11 @@ class VideoIdPatch : BytecodePatch(
                     videoIdRegister = getInstruction<OneRegisterInstruction>(insertIndex).registerA
                 }
                 offset++ // offset so setVideoId is called before any injected call
-            } ?: return VideoIdFingerprint.toErrorResult()
-        } ?: return VideoIdParentFingerprint.toErrorResult()
+            } ?: throw VideoIdFingerprint.exception
+        } ?: throw VideoIdParentFingerprint.exception
 
-        return PatchResultSuccess()
+        injectCall("$VIDEO_PATH/VideoInformation;->setVideoId(Ljava/lang/String;)V")
+
     }
 
     companion object {
@@ -149,14 +129,12 @@ class VideoIdPatch : BytecodePatch(
         private var offset = 0
         private var playerInitInsertIndex = 4
         private var timeInitInsertIndex = 2
-        private var highPrecisionInsertIndex = 0
 
         private var insertIndex: Int = 0
         private var videoIdRegister: Int = 0
         private lateinit var insertMethod: MutableMethod
         private lateinit var playerInitMethod: MutableMethod
         private lateinit var timeMethod: MutableMethod
-        private lateinit var highPrecisionTimeMethod: MutableMethod
 
         /**
          * Adds an invoke-static instruction, called with the new id when the video changes
@@ -203,20 +181,6 @@ class VideoIdPatch : BytecodePatch(
         internal fun videoTimeHook(targetMethodClass: String, targetMethodName: String) =
             timeMethod.insertTimeHook(
                 timeInitInsertIndex++,
-                "$targetMethodClass->$targetMethodName(J)V"
-            )
-
-        /**
-         * Hook the high precision video time.
-         * The hooks is called extremely often (10 to 15 times a seconds), so use with caution.
-         * Note: the hook is usually called _off_ the main thread
-         *
-         * @param targetMethodClass The descriptor for the static method to invoke when the player controller is created.
-         * @param targetMethodName The name of the static method to invoke when the player controller is created.
-         */
-        internal fun highPrecisionTimeHook(targetMethodClass: String, targetMethodName: String) =
-            highPrecisionTimeMethod.insertTimeHook(
-                highPrecisionInsertIndex++,
                 "$targetMethodClass->$targetMethodName(J)V"
             )
     }

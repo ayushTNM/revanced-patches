@@ -1,9 +1,6 @@
 package app.revanced.patches.youtube.utils.resourceid.patch
 
 import app.revanced.patcher.data.ResourceContext
-import app.revanced.patcher.patch.PatchResult
-import app.revanced.patcher.patch.PatchResultError
-import app.revanced.patcher.patch.PatchResultSuccess
 import app.revanced.patcher.patch.ResourcePatch
 import app.revanced.patcher.patch.annotations.DependsOn
 import app.revanced.patches.shared.patch.mapping.ResourceMappingPatch
@@ -28,13 +25,15 @@ class SharedResourceIdPatch : ResourcePatch {
         var AutoNavPreviewStub: Long = -1
         var AutoNavToggle: Long = -1
         var BackgroundCategory: Long = -1
+        var Bar: Long = -1
         var BarContainerHeight: Long = -1
         var BottomPanelOverlayText: Long = -1
-        var BottomSheetMargins: Long = -1
         var BottomUiContainerStub: Long = -1
         var ChannelListSubMenu: Long = -1
         var CompactLink: Long = -1
         var ControlsLayoutStub: Long = -1
+        var CoreContainer: Long = -1
+        var DarkSplashAnimation: Long = -1
         var DislikeButton: Long = -1
         var DonationCompanion: Long = -1
         var EasySeekEduContainer: Long = -1
@@ -63,6 +62,7 @@ class SharedResourceIdPatch : ResourcePatch {
         var ReelPlayerPausedStateButton: Long = -1
         var ReelRightDislikeIcon: Long = -1
         var ReelRightLikeIcon: Long = -1
+        var ReelTimeBarPlayedColor: Long = -1
         var RelatedChipCloudMargin: Long = -1
         var RightComment: Long = -1
         var ScrimOverlay: Long = -1
@@ -77,17 +77,18 @@ class SharedResourceIdPatch : ResourcePatch {
         var VideoZoomIndicatorLayout: Long = -1
         var WordMarkHeader: Long = -1
         var YoutubeControlsOverlay: Long = -1
+        var YtBrandBackgroundSolid: Long = -1
         var YtOutlineArrowTimeBlack: Long = -1
         var YtOutlineFireBlack: Long = -1
         var YtOutlineSearchBlack: Long = -1
     }
 
-    override fun execute(context: ResourceContext): PatchResult {
+    override fun execute(context: ResourceContext) {
 
         fun find(resourceType: ResourceType, resourceName: String) = ResourceMappingPatch
             .resourceMappings
             .find { it.type == resourceType.value && it.name == resourceName }?.id
-            ?: throw PatchResultError("Failed to find resource id : $resourceName")
+            ?: -1
 
         AccountSwitcherAccessibility = find(STRING, "account_switcher_accessibility_label")
         AccessibilityCaptionsButtonName = find(STRING, "accessibility_captions_button_name")
@@ -98,13 +99,15 @@ class SharedResourceIdPatch : ResourcePatch {
         AutoNavPreviewStub = find(ID, "autonav_preview_stub")
         AutoNavToggle = find(ID, "autonav_toggle")
         BackgroundCategory = find(STRING, "pref_background_and_offline_category")
+        Bar = find(LAYOUT, "bar")
         BarContainerHeight = find(DIMEN, "bar_container_height")
         BottomPanelOverlayText = find(ID, "bottom_panel_overlay_text")
-        BottomSheetMargins = find(DIMEN, "bottom_sheet_margins")
         BottomUiContainerStub = find(ID, "bottom_ui_container_stub")
         ChannelListSubMenu = find(LAYOUT, "channel_list_sub_menu")
         CompactLink = find(LAYOUT, "compact_link")
         ControlsLayoutStub = find(ID, "controls_layout_stub")
+        CoreContainer = find(ID, "core_container")
+        DarkSplashAnimation = find(ID, "dark_splash_animation")
         DislikeButton = find(ID, "dislike_button")
         DonationCompanion = find(LAYOUT, "donation_companion")
         EasySeekEduContainer = find(ID, "easy_seek_edu_container")
@@ -135,6 +138,7 @@ class SharedResourceIdPatch : ResourcePatch {
         ReelPlayerPausedStateButton = find(ID, "reel_player_paused_state_buttons")
         ReelRightDislikeIcon = find(DRAWABLE, "reel_right_dislike_icon")
         ReelRightLikeIcon = find(DRAWABLE, "reel_right_like_icon")
+        ReelTimeBarPlayedColor = find(COLOR, "reel_time_bar_played_color")
         RelatedChipCloudMargin = find(LAYOUT, "related_chip_cloud_reduced_margins")
         RightComment = find(DRAWABLE, "ic_right_comment_32c")
         ScrimOverlay = find(ID, "scrim_overlay")
@@ -149,10 +153,10 @@ class SharedResourceIdPatch : ResourcePatch {
         VideoZoomIndicatorLayout = find(ID, "video_zoom_indicator_layout")
         WordMarkHeader = find(ATTR, "ytWordmarkHeader")
         YoutubeControlsOverlay = find(ID, "youtube_controls_overlay")
+        YtBrandBackgroundSolid = find(ATTR, "ytBrandBackgroundSolid")
         YtOutlineArrowTimeBlack = find(DRAWABLE, "yt_outline_arrow_time_black_24")
         YtOutlineFireBlack = find(DRAWABLE, "yt_outline_fire_black_24")
         YtOutlineSearchBlack = find(DRAWABLE, "yt_outline_search_black_24")
 
-        return PatchResultSuccess()
     }
 }

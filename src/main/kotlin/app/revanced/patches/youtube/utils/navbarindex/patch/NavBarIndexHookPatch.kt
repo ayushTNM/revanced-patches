@@ -1,27 +1,33 @@
 package app.revanced.patches.youtube.utils.navbarindex.patch
 
-import app.revanced.extensions.toErrorResult
+import app.revanced.extensions.exception
 import app.revanced.patcher.data.BytecodeContext
 import app.revanced.patcher.extensions.InstructionExtensions.addInstruction
 import app.revanced.patcher.extensions.InstructionExtensions.addInstructions
 import app.revanced.patcher.extensions.InstructionExtensions.getInstruction
 import app.revanced.patcher.fingerprint.method.impl.MethodFingerprint
 import app.revanced.patcher.patch.BytecodePatch
-import app.revanced.patcher.patch.PatchResult
-import app.revanced.patcher.patch.PatchResultSuccess
 import app.revanced.patcher.patch.annotations.DependsOn
 import app.revanced.patches.youtube.utils.fingerprints.OnBackPressedFingerprint
+import app.revanced.patches.youtube.utils.litho.patch.LithoFilterPatch
 import app.revanced.patches.youtube.utils.navbarindex.fingerprints.NavBarBuilderFingerprint
 import app.revanced.patches.youtube.utils.navbarindex.fingerprints.TopBarButtonFingerprint
 import app.revanced.patches.youtube.utils.resourceid.patch.SharedResourceIdPatch
+import app.revanced.util.bytecode.BytecodeHelper.injectInit
+import app.revanced.util.integrations.Constants.PATCHES_PATH
 import app.revanced.util.integrations.Constants.UTILS_PATH
-import org.jf.dexlib2.Opcode
-import org.jf.dexlib2.iface.instruction.OneRegisterInstruction
-import org.jf.dexlib2.iface.instruction.ReferenceInstruction
-import org.jf.dexlib2.iface.instruction.formats.Instruction35c
-import org.jf.dexlib2.iface.reference.MethodReference
+import com.android.tools.smali.dexlib2.Opcode
+import com.android.tools.smali.dexlib2.iface.instruction.OneRegisterInstruction
+import com.android.tools.smali.dexlib2.iface.instruction.ReferenceInstruction
+import com.android.tools.smali.dexlib2.iface.instruction.formats.Instruction35c
+import com.android.tools.smali.dexlib2.iface.reference.MethodReference
 
-@DependsOn([SharedResourceIdPatch::class])
+@DependsOn(
+    [
+        SharedResourceIdPatch::class,
+        LithoFilterPatch::class
+    ]
+)
 class NavBarIndexHookPatch : BytecodePatch(
     listOf(
         NavBarBuilderFingerprint,
@@ -29,7 +35,7 @@ class NavBarIndexHookPatch : BytecodePatch(
         TopBarButtonFingerprint
     )
 ) {
-    override fun execute(context: BytecodeContext): PatchResult {
+    override fun execute(context: BytecodeContext) {
 
         OnBackPressedFingerprint.result?.let {
             it.mutableMethod.apply {
@@ -38,7 +44,7 @@ class NavBarIndexHookPatch : BytecodePatch(
                     "invoke-static {}, $INTEGRATIONS_CLASS_DESCRIPTOR->setLastNavBarIndex()V"
                 )
             }
-        } ?: return OnBackPressedFingerprint.toErrorResult()
+        } ?: throw OnBackPressedFingerprint.exception
 
         TopBarButtonFingerprint.injectIndex(0)
 
@@ -69,9 +75,12 @@ class NavBarIndexHookPatch : BytecodePatch(
                     break
                 }
             }
-        } ?: return NavBarBuilderFingerprint.toErrorResult()
+        } ?: throw NavBarBuilderFingerprint.exception
 
-        return PatchResultSuccess()
+        LithoFilterPatch.addFilter("$PATCHES_PATH/ads/NavBarIndexFilter;")
+
+        context.injectInit("NavBarIndexPatch", "initializeIndex", true)
+
     }
 
     companion object {
@@ -88,7 +97,7 @@ class NavBarIndexHookPatch : BytecodePatch(
                         """
                     )
                 }
-            } ?: throw toErrorResult()
+            } ?: throw exception
         }
     }
 }

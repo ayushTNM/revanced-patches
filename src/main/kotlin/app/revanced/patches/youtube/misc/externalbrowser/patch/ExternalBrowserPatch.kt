@@ -1,15 +1,12 @@
 package app.revanced.patches.youtube.misc.externalbrowser.patch
 
-import app.revanced.extensions.toErrorResult
+import app.revanced.extensions.exception
 import app.revanced.patcher.annotation.Description
 import app.revanced.patcher.annotation.Name
-import app.revanced.patcher.annotation.Version
 import app.revanced.patcher.data.BytecodeContext
 import app.revanced.patcher.extensions.InstructionExtensions.addInstructions
 import app.revanced.patcher.extensions.InstructionExtensions.getInstruction
 import app.revanced.patcher.patch.BytecodePatch
-import app.revanced.patcher.patch.PatchResult
-import app.revanced.patcher.patch.PatchResultSuccess
 import app.revanced.patcher.patch.annotations.DependsOn
 import app.revanced.patcher.patch.annotations.Patch
 import app.revanced.patches.youtube.misc.externalbrowser.fingerprints.ExternalBrowserPrimaryFingerprint
@@ -17,15 +14,15 @@ import app.revanced.patches.youtube.misc.externalbrowser.fingerprints.ExternalBr
 import app.revanced.patches.youtube.misc.externalbrowser.fingerprints.ExternalBrowserTertiaryFingerprint
 import app.revanced.patches.youtube.utils.annotations.YouTubeCompatibility
 import app.revanced.patches.youtube.utils.settings.resource.patch.SettingsPatch
+import app.revanced.util.bytecode.getStringIndex
 import app.revanced.util.integrations.Constants.MISC_PATH
-import org.jf.dexlib2.iface.instruction.OneRegisterInstruction
+import com.android.tools.smali.dexlib2.iface.instruction.OneRegisterInstruction
 
 @Patch
 @Name("Enable external browser")
 @Description("Open url outside the app in an external browser.")
 @DependsOn([SettingsPatch::class])
 @YouTubeCompatibility
-@Version("0.0.1")
 class ExternalBrowserPatch : BytecodePatch(
     listOf(
         ExternalBrowserPrimaryFingerprint,
@@ -33,7 +30,7 @@ class ExternalBrowserPatch : BytecodePatch(
         ExternalBrowserTertiaryFingerprint
     )
 ) {
-    override fun execute(context: BytecodeContext): PatchResult {
+    override fun execute(context: BytecodeContext) {
 
         arrayOf(
             ExternalBrowserPrimaryFingerprint,
@@ -42,17 +39,18 @@ class ExternalBrowserPatch : BytecodePatch(
         ).forEach { fingerprint ->
             fingerprint.result?.let {
                 it.mutableMethod.apply {
-                    val endIndex = it.scanResult.patternScanResult!!.endIndex
-                    val register = getInstruction<OneRegisterInstruction>(endIndex).registerA
+                    val targetIndex =
+                        getStringIndex("android.support.customtabs.action.CustomTabsService")
+                    val register = getInstruction<OneRegisterInstruction>(targetIndex).registerA
 
                     addInstructions(
-                        endIndex + 1, """
+                        targetIndex + 1, """
                             invoke-static {v$register}, $MISC_PATH/ExternalBrowserPatch;->enableExternalBrowser(Ljava/lang/String;)Ljava/lang/String;
                             move-result-object v$register
                             """
                     )
                 }
-            } ?: return fingerprint.toErrorResult()
+            } ?: throw fingerprint.exception
         }
 
         /**
@@ -66,6 +64,5 @@ class ExternalBrowserPatch : BytecodePatch(
 
         SettingsPatch.updatePatchStatus("enable-external-browser")
 
-        return PatchResultSuccess()
     }
 }

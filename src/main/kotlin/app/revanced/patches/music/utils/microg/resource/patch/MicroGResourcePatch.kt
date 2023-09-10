@@ -1,8 +1,7 @@
 package app.revanced.patches.music.utils.microg.resource.patch
 
 import app.revanced.patcher.data.ResourceContext
-import app.revanced.patcher.patch.PatchResult
-import app.revanced.patcher.patch.PatchResultSuccess
+import app.revanced.patcher.patch.PatchException
 import app.revanced.patcher.patch.ResourcePatch
 import app.revanced.patcher.patch.annotations.DependsOn
 import app.revanced.patches.music.utils.microg.shared.Constants.MUSIC_PACKAGE_NAME
@@ -15,13 +14,17 @@ import app.revanced.util.resources.MusicResourceHelper.setMicroG
 
 @DependsOn([PackageNamePatch::class])
 class MicroGResourcePatch : ResourcePatch {
-    override fun execute(context: ResourceContext): PatchResult {
-        val packageNameMusic = PackageNamePatch.MusicPackageName!!
+    override fun execute(context: ResourceContext) {
+        val packageName = PackageNamePatch.MusicPackageName
+            ?: throw PatchException("Invalid package name.")
+
+        if (packageName == MUSIC_PACKAGE_NAME)
+            throw PatchException("Original package name is not available as package name for MicroG build.")
 
         // update manifest
         context.patchManifest(
             MUSIC_PACKAGE_NAME,
-            packageNameMusic
+            packageName
         )
 
         // add metadata to the manifest
@@ -30,8 +33,7 @@ class MicroGResourcePatch : ResourcePatch {
             SPOOFED_PACKAGE_SIGNATURE
         )
 
-        context.setMicroG(packageNameMusic)
+        context.setMicroG(packageName)
 
-        return PatchResultSuccess()
     }
 }

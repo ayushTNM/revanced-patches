@@ -2,8 +2,8 @@ package app.revanced.patches.youtube.utils.returnyoutubedislike.general.fingerpr
 
 import app.revanced.patcher.extensions.or
 import app.revanced.patcher.fingerprint.method.impl.MethodFingerprint
-import org.jf.dexlib2.AccessFlags
-import org.jf.dexlib2.Opcode
+import com.android.tools.smali.dexlib2.AccessFlags
+import com.android.tools.smali.dexlib2.Opcode
 
 object TextComponentAtomicReferenceFingerprint : MethodFingerprint(
     returnType = "L",
@@ -12,6 +12,7 @@ object TextComponentAtomicReferenceFingerprint : MethodFingerprint(
     opcodes = listOf(
         Opcode.INVOKE_VIRTUAL,
         Opcode.MOVE_RESULT_OBJECT,
+        Opcode.MOVE_OBJECT,
         Opcode.CHECK_CAST,
         Opcode.MOVE_OBJECT
     )

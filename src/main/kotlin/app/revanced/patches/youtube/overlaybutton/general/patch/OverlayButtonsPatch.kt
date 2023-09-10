@@ -3,14 +3,10 @@ package app.revanced.patches.youtube.overlaybutton.general.patch
 import app.revanced.extensions.doRecursively
 import app.revanced.patcher.annotation.Description
 import app.revanced.patcher.annotation.Name
-import app.revanced.patcher.annotation.Version
 import app.revanced.patcher.data.ResourceContext
-import app.revanced.patcher.patch.PatchResult
-import app.revanced.patcher.patch.PatchResultSuccess
 import app.revanced.patcher.patch.ResourcePatch
 import app.revanced.patcher.patch.annotations.DependsOn
 import app.revanced.patcher.patch.annotations.Patch
-import app.revanced.patches.youtube.misc.spoofappversion.patch.SpoofAppVersionPatch
 import app.revanced.patches.youtube.overlaybutton.alwaysrepeat.patch.AlwaysRepeatPatch
 import app.revanced.patches.youtube.overlaybutton.downloadbuttonhook.patch.DownloadButtonHookPatch
 import app.revanced.patches.youtube.utils.annotations.YouTubeCompatibility
@@ -38,14 +34,12 @@ import org.w3c.dom.Element
         PlayerControlsPatch::class,
         SettingsPatch::class,
         SharedResourceIdPatch::class,
-        SpoofAppVersionPatch::class,
         VideoIdPatch::class
     ]
 )
 @YouTubeCompatibility
-@Version("0.0.1")
 class OverlayButtonsPatch : ResourcePatch {
-    override fun execute(context: ResourceContext): PatchResult {
+    override fun execute(context: ResourceContext) {
 
         /**
          * Inject hook
@@ -93,7 +87,8 @@ class OverlayButtonsPatch : ResourcePatch {
                 "yt_outline_arrow_repeat_1_white_24.png",
                 "yt_outline_arrow_shuffle_1_white_24.png",
                 "yt_outline_screen_full_exit_white_24.png",
-                "yt_outline_screen_full_white_24.png"
+                "yt_outline_screen_full_white_24.png",
+                "yt_outline_screen_vertical_vd_theme_24.png"
             )
         ).forEach { resourceGroup ->
             context.copyResources("youtube/overlaybuttons", resourceGroup)
@@ -162,6 +157,5 @@ class OverlayButtonsPatch : ResourcePatch {
 
         SettingsPatch.updatePatchStatus("overlay-buttons")
 
-        return PatchResultSuccess()
     }
 }

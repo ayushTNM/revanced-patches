@@ -1,7 +1,7 @@
 package app.revanced.patches.youtube.utils.returnyoutubedislike.shorts.fingerprints
 
 import app.revanced.patcher.fingerprint.method.impl.MethodFingerprint
-import org.jf.dexlib2.Opcode
+import com.android.tools.smali.dexlib2.Opcode
 
 object ShortsTextViewFingerprint : MethodFingerprint(
     returnType = "V",
@@ -24,7 +24,5 @@ object ShortsTextViewFingerprint : MethodFingerprint(
         Opcode.IF_EQ,
         Opcode.RETURN_VOID,
         Opcode.IGET_OBJECT,     // TextView field
-        Opcode.CHECK_CAST,
-        Opcode.IGET_BOOLEAN,    // boolean field
     )
 )

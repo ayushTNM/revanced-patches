@@ -1,9 +1,8 @@
 package app.revanced.patches.youtube.fullscreen.fullscreenpanels.patch
 
-import app.revanced.extensions.toErrorResult
+import app.revanced.extensions.exception
 import app.revanced.patcher.annotation.Description
 import app.revanced.patcher.annotation.Name
-import app.revanced.patcher.annotation.Version
 import app.revanced.patcher.data.BytecodeContext
 import app.revanced.patcher.extensions.InstructionExtensions.addInstruction
 import app.revanced.patcher.extensions.InstructionExtensions.addInstructions
@@ -11,8 +10,6 @@ import app.revanced.patcher.extensions.InstructionExtensions.addInstructionsWith
 import app.revanced.patcher.extensions.InstructionExtensions.getInstruction
 import app.revanced.patcher.extensions.InstructionExtensions.removeInstruction
 import app.revanced.patcher.patch.BytecodePatch
-import app.revanced.patcher.patch.PatchResult
-import app.revanced.patcher.patch.PatchResultSuccess
 import app.revanced.patcher.patch.annotations.DependsOn
 import app.revanced.patcher.patch.annotations.Patch
 import app.revanced.patcher.util.smali.ExternalLabel
@@ -24,13 +21,13 @@ import app.revanced.patches.youtube.utils.quickactions.patch.QuickActionsHookPat
 import app.revanced.patches.youtube.utils.resourceid.patch.SharedResourceIdPatch
 import app.revanced.patches.youtube.utils.resourceid.patch.SharedResourceIdPatch.Companion.FullScreenEngagementPanel
 import app.revanced.patches.youtube.utils.settings.resource.patch.SettingsPatch
-import app.revanced.util.bytecode.getStringIndex
+import app.revanced.util.bytecode.getNarrowLiteralIndex
 import app.revanced.util.bytecode.getWideLiteralIndex
 import app.revanced.util.integrations.Constants.FULLSCREEN
-import org.jf.dexlib2.Opcode
-import org.jf.dexlib2.iface.instruction.OneRegisterInstruction
-import org.jf.dexlib2.iface.instruction.ReferenceInstruction
-import org.jf.dexlib2.iface.instruction.formats.Instruction35c
+import com.android.tools.smali.dexlib2.Opcode
+import com.android.tools.smali.dexlib2.iface.instruction.OneRegisterInstruction
+import com.android.tools.smali.dexlib2.iface.instruction.ReferenceInstruction
+import com.android.tools.smali.dexlib2.iface.instruction.formats.Instruction35c
 
 @Patch
 @Name("Hide fullscreen panels")
@@ -43,7 +40,6 @@ import org.jf.dexlib2.iface.instruction.formats.Instruction35c
     ]
 )
 @YouTubeCompatibility
-@Version("0.0.1")
 class HideFullscreenPanelsPatch : BytecodePatch(
     listOf(
         FullscreenEngagementPanelFingerprint,
@@ -51,7 +47,7 @@ class HideFullscreenPanelsPatch : BytecodePatch(
         LayoutConstructorFingerprint
     )
 ) {
-    override fun execute(context: BytecodeContext): PatchResult {
+    override fun execute(context: BytecodeContext) {
 
         FullscreenEngagementPanelFingerprint.result?.let {
             it.mutableMethod.apply {
@@ -63,7 +59,7 @@ class HideFullscreenPanelsPatch : BytecodePatch(
                     "invoke-static {v$targetRegister}, $FULLSCREEN->hideFullscreenPanels(Landroidx/coordinatorlayout/widget/CoordinatorLayout;)V"
                 )
             }
-        } ?: return FullscreenEngagementPanelFingerprint.toErrorResult()
+        } ?: throw FullscreenEngagementPanelFingerprint.exception
 
         FullscreenViewAdderFingerprint.result?.let {
             it.mutableMethod.apply {
@@ -84,7 +80,7 @@ class HideFullscreenPanelsPatch : BytecodePatch(
         LayoutConstructorFingerprint.result?.let {
             it.mutableMethod.apply {
                 val dummyRegister =
-                    getInstruction<OneRegisterInstruction>(getStringIndex("1.0x")).registerA
+                    getInstruction<OneRegisterInstruction>(getNarrowLiteralIndex(159962)).registerA
 
                 val invokeIndex = implementation!!.instructions.indexOfFirst { instruction ->
                     instruction.opcode == Opcode.INVOKE_VIRTUAL &&
@@ -100,7 +96,7 @@ class HideFullscreenPanelsPatch : BytecodePatch(
                         """, ExternalLabel("hidden", getInstruction(invokeIndex + 1))
                 )
             }
-        } ?: return LayoutConstructorFingerprint.toErrorResult()
+        } ?: throw LayoutConstructorFingerprint.exception
 
         /**
          * Add settings
@@ -114,6 +110,5 @@ class HideFullscreenPanelsPatch : BytecodePatch(
 
         SettingsPatch.updatePatchStatus("hide-fullscreen-panels")
 
-        return PatchResultSuccess()
     }
 }

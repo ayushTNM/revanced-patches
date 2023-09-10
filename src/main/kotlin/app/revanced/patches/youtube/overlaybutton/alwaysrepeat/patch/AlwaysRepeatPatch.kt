@@ -1,41 +1,33 @@
 package app.revanced.patches.youtube.overlaybutton.alwaysrepeat.patch
 
-import app.revanced.extensions.toErrorResult
+import app.revanced.extensions.exception
 import app.revanced.patcher.data.BytecodeContext
-import app.revanced.patcher.data.toMethodWalker
-import app.revanced.patcher.extensions.InstructionExtensions.addInstruction
 import app.revanced.patcher.extensions.InstructionExtensions.addInstructions
 import app.revanced.patcher.extensions.InstructionExtensions.addInstructionsWithLabels
 import app.revanced.patcher.extensions.InstructionExtensions.getInstruction
 import app.revanced.patcher.fingerprint.method.impl.MethodFingerprint.Companion.resolve
 import app.revanced.patcher.patch.BytecodePatch
-import app.revanced.patcher.patch.PatchResult
-import app.revanced.patcher.patch.PatchResultSuccess
 import app.revanced.patcher.util.proxy.mutableTypes.MutableMethod
 import app.revanced.patcher.util.smali.ExternalLabel
 import app.revanced.patches.youtube.overlaybutton.alwaysrepeat.fingerprints.AutoNavInformerFingerprint
-import app.revanced.patches.youtube.overlaybutton.alwaysrepeat.fingerprints.VideoEndFingerprint
-import app.revanced.patches.youtube.overlaybutton.alwaysrepeat.fingerprints.VideoEndParentFingerprint
-import app.revanced.patches.youtube.utils.fingerprints.PlayerPatchFingerprint
-import app.revanced.util.integrations.Constants.INTEGRATIONS_PATH
+import app.revanced.patches.youtube.utils.fingerprints.VideoEndFingerprint
+import app.revanced.patches.youtube.utils.fingerprints.VideoEndParentFingerprint
 import app.revanced.util.integrations.Constants.UTILS_PATH
 import app.revanced.util.integrations.Constants.VIDEO_PATH
-import org.jf.dexlib2.iface.instruction.OneRegisterInstruction
+import com.android.tools.smali.dexlib2.iface.instruction.OneRegisterInstruction
 
 class AlwaysRepeatPatch : BytecodePatch(
     listOf(
         AutoNavInformerFingerprint,
-        PlayerPatchFingerprint,
         VideoEndParentFingerprint
     )
 ) {
-    override fun execute(context: BytecodeContext): PatchResult {
+    override fun execute(context: BytecodeContext) {
         VideoEndParentFingerprint.result?.classDef?.let { classDef ->
             VideoEndFingerprint.also { it.resolve(context, classDef) }.result?.let {
                 it.mutableMethod.apply {
                     addInstructionsWithLabels(
                         0, """
-                            invoke-static {}, $UTILS_PATH/AlwaysRepeatPatch;->shouldRepeatAndPause()V
                             invoke-static {}, $VIDEO_PATH/VideoInformation;->shouldAlwaysRepeat()Z
                             move-result v0
                             if-eqz v0, :end
@@ -43,15 +35,8 @@ class AlwaysRepeatPatch : BytecodePatch(
                             """, ExternalLabel("end", getInstruction(0))
                     )
                 }
-            } ?: return VideoEndFingerprint.toErrorResult()
-        } ?: return VideoEndParentFingerprint.toErrorResult()
-
-        PlayerPatchFingerprint.result?.mutableMethod?.addInstruction(
-            0,
-            "invoke-static {p0}, " +
-                    "$INTEGRATIONS_PATH/utils/ResourceHelper;->" +
-                    "setPlayPauseButton(Landroid/view/View;)V"
-        ) ?: return PlayerPatchFingerprint.toErrorResult()
+            } ?: throw VideoEndFingerprint.exception
+        } ?: throw VideoEndParentFingerprint.exception
 
         AutoNavInformerFingerprint.result?.let {
             with(
@@ -70,8 +55,7 @@ class AlwaysRepeatPatch : BytecodePatch(
                         """
                 )
             }
-        } ?: return AutoNavInformerFingerprint.toErrorResult()
+        } ?: throw AutoNavInformerFingerprint.exception
 
-        return PatchResultSuccess()
     }
 }

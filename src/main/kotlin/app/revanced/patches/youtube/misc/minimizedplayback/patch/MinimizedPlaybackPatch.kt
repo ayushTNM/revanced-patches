@@ -1,16 +1,12 @@
 package app.revanced.patches.youtube.misc.minimizedplayback.patch
 
-import app.revanced.extensions.toErrorResult
+import app.revanced.extensions.exception
 import app.revanced.patcher.annotation.Description
 import app.revanced.patcher.annotation.Name
-import app.revanced.patcher.annotation.Version
 import app.revanced.patcher.data.BytecodeContext
-import app.revanced.patcher.data.toMethodWalker
 import app.revanced.patcher.extensions.InstructionExtensions.addInstruction
 import app.revanced.patcher.extensions.InstructionExtensions.addInstructions
 import app.revanced.patcher.patch.BytecodePatch
-import app.revanced.patcher.patch.PatchResult
-import app.revanced.patcher.patch.PatchResultSuccess
 import app.revanced.patcher.patch.annotations.DependsOn
 import app.revanced.patcher.patch.annotations.Patch
 import app.revanced.patcher.util.proxy.mutableTypes.MutableMethod
@@ -22,8 +18,8 @@ import app.revanced.patches.youtube.utils.integrations.patch.IntegrationsPatch
 import app.revanced.patches.youtube.utils.playertype.patch.PlayerTypeHookPatch
 import app.revanced.patches.youtube.utils.resourceid.patch.SharedResourceIdPatch
 import app.revanced.util.integrations.Constants.MISC_PATH
-import org.jf.dexlib2.iface.instruction.ReferenceInstruction
-import org.jf.dexlib2.iface.reference.MethodReference
+import com.android.tools.smali.dexlib2.iface.instruction.ReferenceInstruction
+import com.android.tools.smali.dexlib2.iface.reference.MethodReference
 
 @Patch
 @Name("Enable minimized playback")
@@ -36,7 +32,6 @@ import org.jf.dexlib2.iface.reference.MethodReference
     ]
 )
 @YouTubeCompatibility
-@Version("0.0.1")
 class MinimizedPlaybackPatch : BytecodePatch(
     listOf(
         KidsMinimizedPlaybackPolicyControllerFingerprint,
@@ -44,20 +39,19 @@ class MinimizedPlaybackPatch : BytecodePatch(
         MinimizedPlaybackSettingsFingerprint
     )
 ) {
-    override fun execute(context: BytecodeContext): PatchResult {
+    override fun execute(context: BytecodeContext) {
         val methods = arrayOf(
             KidsMinimizedPlaybackPolicyControllerFingerprint,
             MinimizedPlaybackManagerFingerprint,
             MinimizedPlaybackSettingsFingerprint
         ).map {
-            it.result?.mutableMethod ?: return it.toErrorResult()
+            it.result?.mutableMethod ?: throw it.exception
         }
 
         methods[0].hookKidsMiniPlayer()
         methods[1].hookMinimizedPlaybackManager()
         methods[2].hookMinimizedPlaybackSettings(context)
 
-        return PatchResultSuccess()
     }
 
     private companion object {

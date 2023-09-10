@@ -1,28 +1,29 @@
 package app.revanced.patches.reddit.ad.general.patch
 
-import app.revanced.extensions.toErrorResult
+import app.revanced.extensions.exception
 import app.revanced.patcher.annotation.Description
 import app.revanced.patcher.annotation.Name
-import app.revanced.patcher.annotation.Version
 import app.revanced.patcher.data.BytecodeContext
 import app.revanced.patcher.extensions.InstructionExtensions.addInstructions
+import app.revanced.patcher.extensions.InstructionExtensions.addInstructionsWithLabels
 import app.revanced.patcher.extensions.InstructionExtensions.getInstruction
-import app.revanced.patcher.extensions.InstructionExtensions.removeInstruction
 import app.revanced.patcher.patch.BytecodePatch
-import app.revanced.patcher.patch.PatchResult
-import app.revanced.patcher.patch.PatchResultError
-import app.revanced.patcher.patch.PatchResultSuccess
+import app.revanced.patcher.patch.PatchException
 import app.revanced.patcher.patch.annotations.DependsOn
 import app.revanced.patcher.patch.annotations.Patch
 import app.revanced.patcher.patch.annotations.RequiresIntegrations
+import app.revanced.patcher.util.smali.ExternalLabel
 import app.revanced.patches.reddit.ad.banner.patch.HideBannerPatch
 import app.revanced.patches.reddit.ad.comments.patch.HideCommentAdsPatch
 import app.revanced.patches.reddit.ad.general.fingerprints.AdPostFingerprint
 import app.revanced.patches.reddit.ad.general.fingerprints.NewAdPostFingerprint
 import app.revanced.patches.reddit.utils.annotations.RedditCompatibility
-import org.jf.dexlib2.iface.instruction.ReferenceInstruction
-import org.jf.dexlib2.iface.instruction.formats.Instruction22c
-import org.jf.dexlib2.iface.reference.FieldReference
+import app.revanced.patches.reddit.utils.settings.bytecode.patch.SettingsBytecodePatch.Companion.updateSettingsStatus
+import app.revanced.patches.reddit.utils.settings.resource.patch.SettingsPatch
+import com.android.tools.smali.dexlib2.iface.instruction.FiveRegisterInstruction
+import com.android.tools.smali.dexlib2.iface.instruction.ReferenceInstruction
+import com.android.tools.smali.dexlib2.iface.instruction.formats.Instruction22c
+import com.android.tools.smali.dexlib2.iface.reference.FieldReference
 
 @Patch
 @Name("Hide ads")
@@ -30,19 +31,19 @@ import org.jf.dexlib2.iface.reference.FieldReference
 @DependsOn(
     [
         HideBannerPatch::class,
-        HideCommentAdsPatch::class
+        HideCommentAdsPatch::class,
+        SettingsPatch::class
     ]
 )
 @RedditCompatibility
 @RequiresIntegrations
-@Version("0.0.2")
 class HideAdsPatch : BytecodePatch(
     listOf(
         AdPostFingerprint,
         NewAdPostFingerprint
     )
 ) {
-    override fun execute(context: BytecodeContext): PatchResult {
+    override fun execute(context: BytecodeContext) {
         // region Filter promoted ads (does not work in popular or latest feed)
 
         AdPostFingerprint.result?.let {
@@ -52,20 +53,18 @@ class HideAdsPatch : BytecodePatch(
                 val targetReferenceName = (targetReference as FieldReference).name
 
                 if (targetReferenceName != "children")
-                    throw PatchResultError("Method signature reference name did not match: $targetReferenceName")
+                    throw PatchException("Method signature reference name did not match: $targetReferenceName")
 
-                val castedInstruction = getInstruction<Instruction22c>(targetIndex)
+                val targetRegister = getInstruction<Instruction22c>(targetIndex).registerA
 
-                removeInstruction(targetIndex)
                 addInstructions(
                     targetIndex, """
-                        invoke-static {v${castedInstruction.registerA}}, $FILTER_METHOD_DESCRIPTOR
-                        move-result-object v0
-                        iput-object v0, v${castedInstruction.registerB}, ${castedInstruction.reference}
+                        invoke-static {v$targetRegister}, $INTEGRATIONS_OLD_METHOD_DESCRIPTOR
+                        move-result-object v$targetRegister
                         """
                 )
             }
-        } ?: return AdPostFingerprint.toErrorResult()
+        } ?: throw AdPostFingerprint.exception
 
         // The new feeds work by inserting posts into lists.
         // AdElementConverter is conveniently responsible for inserting all feed ads.
@@ -77,18 +76,32 @@ class HideAdsPatch : BytecodePatch(
                     getInstruction<ReferenceInstruction>(targetIndex).reference.toString()
 
                 if (!targetParameter.endsWith("Ljava/util/ArrayList;->add(Ljava/lang/Object;)Z"))
-                    throw PatchResultError("Method signature parameter did not match: $targetParameter")
+                    throw PatchException("Method signature parameter did not match: $targetParameter")
 
-                removeInstruction(targetIndex)
+                val targetRegister =
+                    getInstruction<FiveRegisterInstruction>(targetIndex).registerD + 1
+
+                addInstructionsWithLabels(
+                    targetIndex, """
+                        invoke-static {}, $INTEGRATIONS_NEW_METHOD_DESCRIPTOR
+                        move-result v$targetRegister
+                        if-nez v$targetRegister, :show
+                        """, ExternalLabel("show", getInstruction(targetIndex + 1))
+                )
             }
-        } ?: return NewAdPostFingerprint.toErrorResult()
+        } ?: throw NewAdPostFingerprint.exception
 
-        return PatchResultSuccess()
+        updateSettingsStatus("GeneralAds")
+
     }
 
     private companion object {
-        private const val FILTER_METHOD_DESCRIPTOR =
-            "Lapp/revanced/reddit/patches/FilterPromotedLinksPatch;" +
-                    "->filterChildren(Ljava/lang/Iterable;)Ljava/util/List;"
+        private const val INTEGRATIONS_OLD_METHOD_DESCRIPTOR =
+            "Lapp/revanced/reddit/patches/GeneralAdsPatch;" +
+                    "->hideOldPostAds(Ljava/util/List;)Ljava/util/List;"
+
+        private const val INTEGRATIONS_NEW_METHOD_DESCRIPTOR =
+            "Lapp/revanced/reddit/patches/GeneralAdsPatch;" +
+                    "->hideNewPostAds()Z"
     }
 }

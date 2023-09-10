@@ -1,14 +1,12 @@
 package app.revanced.patches.youtube.shorts.shortscomponent.patch
 
-import app.revanced.extensions.toErrorResult
+import app.revanced.extensions.exception
 import app.revanced.patcher.data.BytecodeContext
 import app.revanced.patcher.extensions.InstructionExtensions.addInstruction
 import app.revanced.patcher.extensions.InstructionExtensions.addInstructions
 import app.revanced.patcher.extensions.InstructionExtensions.getInstruction
 import app.revanced.patcher.fingerprint.method.impl.MethodFingerprint.Companion.resolve
 import app.revanced.patcher.patch.BytecodePatch
-import app.revanced.patcher.patch.PatchResult
-import app.revanced.patcher.patch.PatchResultSuccess
 import app.revanced.patches.youtube.shorts.shortscomponent.fingerprints.ShortsSubscriptionsFingerprint
 import app.revanced.patches.youtube.shorts.shortscomponent.fingerprints.ShortsSubscriptionsTabletFingerprint
 import app.revanced.patches.youtube.shorts.shortscomponent.fingerprints.ShortsSubscriptionsTabletParentFingerprint
@@ -16,11 +14,11 @@ import app.revanced.patches.youtube.utils.resourceid.patch.SharedResourceIdPatch
 import app.revanced.patches.youtube.utils.resourceid.patch.SharedResourceIdPatch.Companion.ReelPlayerPausedStateButton
 import app.revanced.util.bytecode.getWideLiteralIndex
 import app.revanced.util.integrations.Constants.SHORTS
-import org.jf.dexlib2.Opcode
-import org.jf.dexlib2.iface.instruction.OneRegisterInstruction
-import org.jf.dexlib2.iface.instruction.ReferenceInstruction
-import org.jf.dexlib2.iface.instruction.TwoRegisterInstruction
-import org.jf.dexlib2.iface.reference.FieldReference
+import com.android.tools.smali.dexlib2.Opcode
+import com.android.tools.smali.dexlib2.iface.instruction.OneRegisterInstruction
+import com.android.tools.smali.dexlib2.iface.instruction.ReferenceInstruction
+import com.android.tools.smali.dexlib2.iface.instruction.TwoRegisterInstruction
+import com.android.tools.smali.dexlib2.iface.reference.FieldReference
 
 class ShortsSubscriptionsButtonPatch : BytecodePatch(
     listOf(
@@ -28,7 +26,7 @@ class ShortsSubscriptionsButtonPatch : BytecodePatch(
         ShortsSubscriptionsTabletParentFingerprint
     )
 ) {
-    override fun execute(context: BytecodeContext): PatchResult {
+    override fun execute(context: BytecodeContext) {
         ShortsSubscriptionsFingerprint.result?.let {
             it.mutableMethod.apply {
                 val insertIndex = getWideLiteralIndex(ReelPlayerPausedStateButton) + 2
@@ -39,12 +37,16 @@ class ShortsSubscriptionsButtonPatch : BytecodePatch(
                     "invoke-static {v$insertRegister}, $SHORTS->hideShortsPlayerSubscriptionsButton(Landroid/view/View;)V"
                 )
             }
-        } ?: return ShortsSubscriptionsFingerprint.toErrorResult()
+        } ?: throw ShortsSubscriptionsFingerprint.exception
 
+        /**
+         * Deprecated in YouTube v18.31.xx+
+         */
         ShortsSubscriptionsTabletParentFingerprint.result?.let { parentResult ->
             parentResult.mutableMethod.apply {
                 val targetIndex = getWideLiteralIndex(ReelPlayerFooter) - 1
-                if (getInstruction(targetIndex).opcode != Opcode.IPUT) return ShortsSubscriptionsTabletFingerprint.toErrorResult()
+                if (getInstruction(targetIndex).opcode != Opcode.IPUT)
+                    throw ShortsSubscriptionsTabletFingerprint.exception
                 subscriptionFieldReference =
                     (getInstruction<ReferenceInstruction>(targetIndex)).reference as FieldReference
             }
@@ -72,10 +74,9 @@ class ShortsSubscriptionsButtonPatch : BytecodePatch(
                         )
                     }
                 }
-            } ?: return ShortsSubscriptionsTabletFingerprint.toErrorResult()
-        } ?: return ShortsSubscriptionsTabletParentFingerprint.toErrorResult()
+            }
+        }
 
-        return PatchResultSuccess()
     }
 
     private companion object {

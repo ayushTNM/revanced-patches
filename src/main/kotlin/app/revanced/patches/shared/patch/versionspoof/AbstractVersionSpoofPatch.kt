@@ -1,25 +1,23 @@
 package app.revanced.patches.shared.patch.versionspoof
 
-import app.revanced.extensions.toErrorResult
+import app.revanced.extensions.exception
 import app.revanced.patcher.data.BytecodeContext
 import app.revanced.patcher.extensions.InstructionExtensions.addInstructions
 import app.revanced.patcher.fingerprint.method.impl.MethodFingerprint.Companion.resolve
 import app.revanced.patcher.patch.BytecodePatch
-import app.revanced.patcher.patch.PatchResult
-import app.revanced.patcher.patch.PatchResultSuccess
 import app.revanced.patches.shared.fingerprints.versionspoof.ClientInfoFingerprint
 import app.revanced.patches.shared.fingerprints.versionspoof.ClientInfoParentFingerprint
-import org.jf.dexlib2.Opcode
-import org.jf.dexlib2.dexbacked.reference.DexBackedFieldReference
-import org.jf.dexlib2.iface.instruction.OneRegisterInstruction
-import org.jf.dexlib2.iface.instruction.ReferenceInstruction
+import com.android.tools.smali.dexlib2.Opcode
+import com.android.tools.smali.dexlib2.dexbacked.reference.DexBackedFieldReference
+import com.android.tools.smali.dexlib2.iface.instruction.OneRegisterInstruction
+import com.android.tools.smali.dexlib2.iface.instruction.ReferenceInstruction
 
 abstract class AbstractVersionSpoofPatch(
     private val descriptor: String
 ) : BytecodePatch(
     listOf(ClientInfoParentFingerprint)
 ) {
-    override fun execute(context: BytecodeContext): PatchResult {
+    override fun execute(context: BytecodeContext) {
 
         ClientInfoParentFingerprint.result?.let { parentResult ->
             ClientInfoFingerprint.also {
@@ -52,11 +50,10 @@ abstract class AbstractVersionSpoofPatch(
                         )
                         break
                     }
-                    if (insertIndex <= 0) return ClientInfoFingerprint.toErrorResult()
+                    if (insertIndex <= 0) throw ClientInfoFingerprint.exception
                 }
-            } ?: return ClientInfoFingerprint.toErrorResult()
-        } ?: return ClientInfoParentFingerprint.toErrorResult()
+            } ?: throw ClientInfoFingerprint.exception
+        } ?: throw ClientInfoParentFingerprint.exception
 
-        return PatchResultSuccess()
     }
 }

@@ -1,6 +1,6 @@
 package app.revanced.patches.youtube.utils.sponsorblock.bytecode.patch
 
-import app.revanced.extensions.toErrorResult
+import app.revanced.extensions.exception
 import app.revanced.patcher.data.BytecodeContext
 import app.revanced.patcher.extensions.InstructionExtensions.addInstruction
 import app.revanced.patcher.extensions.InstructionExtensions.addInstructions
@@ -8,8 +8,6 @@ import app.revanced.patcher.extensions.InstructionExtensions.getInstruction
 import app.revanced.patcher.extensions.InstructionExtensions.replaceInstruction
 import app.revanced.patcher.fingerprint.method.impl.MethodFingerprint.Companion.resolve
 import app.revanced.patcher.patch.BytecodePatch
-import app.revanced.patcher.patch.PatchResult
-import app.revanced.patcher.patch.PatchResultSuccess
 import app.revanced.patcher.patch.annotations.DependsOn
 import app.revanced.patcher.util.proxy.mutableTypes.MutableMethod
 import app.revanced.patches.youtube.utils.fingerprints.SeekbarFingerprint
@@ -21,22 +19,21 @@ import app.revanced.patches.youtube.utils.playercontrols.patch.PlayerControlsPat
 import app.revanced.patches.youtube.utils.resourceid.patch.SharedResourceIdPatch
 import app.revanced.patches.youtube.utils.resourceid.patch.SharedResourceIdPatch.Companion.InsetOverlayViewLayout
 import app.revanced.patches.youtube.utils.resourceid.patch.SharedResourceIdPatch.Companion.TotalTime
-import app.revanced.patches.youtube.utils.sponsorblock.bytecode.fingerprints.PlayerControllerFingerprint
 import app.revanced.patches.youtube.utils.sponsorblock.bytecode.fingerprints.RectangleFieldInvalidatorFingerprint
+import app.revanced.patches.youtube.utils.sponsorblock.bytecode.fingerprints.SegmentPlaybackControllerFingerprint
 import app.revanced.patches.youtube.utils.videoid.general.patch.VideoIdPatch
 import app.revanced.patches.youtube.utils.videoid.withoutshorts.patch.VideoIdWithoutShortsPatch
 import app.revanced.util.bytecode.BytecodeHelper.injectInit
-import app.revanced.util.bytecode.BytecodeHelper.updatePatchStatus
 import app.revanced.util.bytecode.getWideLiteralIndex
-import org.jf.dexlib2.Opcode
-import org.jf.dexlib2.builder.BuilderInstruction
-import org.jf.dexlib2.builder.instruction.BuilderInstruction3rc
-import org.jf.dexlib2.iface.instruction.FiveRegisterInstruction
-import org.jf.dexlib2.iface.instruction.OneRegisterInstruction
-import org.jf.dexlib2.iface.instruction.ReferenceInstruction
-import org.jf.dexlib2.iface.instruction.formats.Instruction35c
-import org.jf.dexlib2.iface.reference.FieldReference
-import org.jf.dexlib2.iface.reference.MethodReference
+import com.android.tools.smali.dexlib2.Opcode
+import com.android.tools.smali.dexlib2.builder.BuilderInstruction
+import com.android.tools.smali.dexlib2.builder.instruction.BuilderInstruction3rc
+import com.android.tools.smali.dexlib2.iface.instruction.FiveRegisterInstruction
+import com.android.tools.smali.dexlib2.iface.instruction.OneRegisterInstruction
+import com.android.tools.smali.dexlib2.iface.instruction.ReferenceInstruction
+import com.android.tools.smali.dexlib2.iface.instruction.formats.Instruction35c
+import com.android.tools.smali.dexlib2.iface.reference.FieldReference
+import com.android.tools.smali.dexlib2.iface.reference.MethodReference
 
 @DependsOn(
     [
@@ -49,13 +46,13 @@ import org.jf.dexlib2.iface.reference.MethodReference
 )
 class SponsorBlockBytecodePatch : BytecodePatch(
     listOf(
-        PlayerControllerFingerprint,
         SeekbarFingerprint,
+        SegmentPlaybackControllerFingerprint,
         TotalTimeFingerprint,
         YouTubeControlsOverlayFingerprint
     )
 ) {
-    override fun execute(context: BytecodeContext): PatchResult {
+    override fun execute(context: BytecodeContext) {
 
         /**
          * Hook the video time methods
@@ -82,9 +79,9 @@ class SponsorBlockBytecodePatch : BytecodePatch(
                     mutableClass
                 )
             }.result?.mutableMethod
-                ?: return SeekbarOnDrawFingerprint.toErrorResult()
+                ?: throw SeekbarOnDrawFingerprint.exception
             insertInstructions = insertMethod.implementation!!.instructions
-        } ?: return SeekbarFingerprint.toErrorResult()
+        } ?: throw SeekbarFingerprint.exception
 
 
         /**
@@ -165,7 +162,7 @@ class SponsorBlockBytecodePatch : BytecodePatch(
                         """
                 )
             }
-        } ?: return TotalTimeFingerprint.toErrorResult()
+        } ?: throw TotalTimeFingerprint.exception
 
 
         /**
@@ -181,7 +178,7 @@ class SponsorBlockBytecodePatch : BytecodePatch(
                     "invoke-static {v$targetRegister}, $INTEGRATIONS_BUTTON_CLASS_DESCRIPTOR/ui/SponsorBlockViewController;->initialize(Landroid/view/ViewGroup;)V"
                 )
             }
-        } ?: return YouTubeControlsOverlayFingerprint.toErrorResult()
+        } ?: throw YouTubeControlsOverlayFingerprint.exception
 
 
         /**
@@ -199,7 +196,7 @@ class SponsorBlockBytecodePatch : BytecodePatch(
                         getInstruction<ReferenceInstruction>(implementation!!.instructions.count() - 3).reference
                     val rectangleFieldName = (rectangleReference as FieldReference).name
 
-                    PlayerControllerFingerprint.result?.let { result ->
+                    SegmentPlaybackControllerFingerprint.result?.let { result ->
                         result.mutableMethod.apply {
                             for ((index, instruction) in implementation!!.instructions.withIndex()) {
                                 if (instruction.opcode != Opcode.CONST_STRING) continue
@@ -214,10 +211,10 @@ class SponsorBlockBytecodePatch : BytecodePatch(
                                 break
                             }
                         }
-                    } ?: return PlayerControllerFingerprint.toErrorResult()
+                    } ?: throw SegmentPlaybackControllerFingerprint.exception
                 }
-            } ?: return RectangleFieldInvalidatorFingerprint.toErrorResult()
-        } ?: return SeekbarFingerprint.toErrorResult()
+            } ?: throw RectangleFieldInvalidatorFingerprint.exception
+        } ?: throw SeekbarFingerprint.exception
 
 
         /**
@@ -225,10 +222,8 @@ class SponsorBlockBytecodePatch : BytecodePatch(
          */
         VideoIdWithoutShortsPatch.injectCall("$INTEGRATIONS_PLAYER_CONTROLLER_CLASS_DESCRIPTOR->setCurrentVideoId(Ljava/lang/String;)V")
 
-        context.injectInit("FirstRun", "initializationSB")
-        context.updatePatchStatus("SponsorBlock")
+        context.injectInit("FirstRun", "initializationSB", true)
 
-        return PatchResultSuccess()
     }
 
     internal companion object {

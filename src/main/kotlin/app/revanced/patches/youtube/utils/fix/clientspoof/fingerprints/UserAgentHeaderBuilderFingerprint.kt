@@ -1,7 +1,7 @@
 package app.revanced.patches.youtube.utils.fix.clientspoof.fingerprints
 
 import app.revanced.patcher.fingerprint.method.impl.MethodFingerprint
-import org.jf.dexlib2.Opcode
+import com.android.tools.smali.dexlib2.Opcode
 
 object UserAgentHeaderBuilderFingerprint : MethodFingerprint(
     parameters = listOf("L", "L", "L"),
@@ -9,5 +9,5 @@ object UserAgentHeaderBuilderFingerprint : MethodFingerprint(
         Opcode.MOVE_RESULT_OBJECT,
         Opcode.INVOKE_VIRTUAL
     ),
-    strings = listOf("(Linux; U; Android "),
+    strings = listOf("(Linux; U; Android ")
 )

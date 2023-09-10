@@ -2,8 +2,8 @@ package app.revanced.patches.music.misc.premium.fingerprints
 
 import app.revanced.patcher.extensions.or
 import app.revanced.patcher.fingerprint.method.impl.MethodFingerprint
-import org.jf.dexlib2.AccessFlags
-import org.jf.dexlib2.Opcode
+import com.android.tools.smali.dexlib2.AccessFlags
+import com.android.tools.smali.dexlib2.Opcode
 
 object HideGetPremiumFingerprint : MethodFingerprint(
     returnType = "V",
@@ -18,5 +18,5 @@ object HideGetPremiumFingerprint : MethodFingerprint(
         Opcode.MOVE_RESULT_OBJECT,
         Opcode.INVOKE_STATIC
     ),
-    listOf("FEmusic_history")
+    strings = listOf("FEmusic_history")
 )

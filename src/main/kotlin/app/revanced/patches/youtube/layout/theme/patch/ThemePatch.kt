@@ -2,12 +2,10 @@ package app.revanced.patches.youtube.layout.theme.patch
 
 import app.revanced.patcher.annotation.Description
 import app.revanced.patcher.annotation.Name
-import app.revanced.patcher.annotation.Version
 import app.revanced.patcher.data.ResourceContext
 import app.revanced.patcher.patch.OptionsContainer
+import app.revanced.patcher.patch.PatchException
 import app.revanced.patcher.patch.PatchOption
-import app.revanced.patcher.patch.PatchResult
-import app.revanced.patcher.patch.PatchResultSuccess
 import app.revanced.patcher.patch.ResourcePatch
 import app.revanced.patcher.patch.annotations.DependsOn
 import app.revanced.patcher.patch.annotations.Patch
@@ -27,9 +25,8 @@ import org.w3c.dom.Element
     ]
 )
 @YouTubeCompatibility
-@Version("0.0.1")
 class ThemePatch : ResourcePatch {
-    override fun execute(context: ResourceContext): PatchResult {
+    override fun execute(context: ResourceContext) {
 
         arrayOf("values", "values-v31").forEach { context.setTheme(it) }
 
@@ -37,10 +34,12 @@ class ThemePatch : ResourcePatch {
 
         context.updatePatchStatusTheme(currentTheme)
 
-        return PatchResultSuccess()
     }
 
     private fun ResourceContext.setTheme(valuesPath: String) {
+        val darkThemeColor = darkThemeBackgroundColor
+            ?: throw PatchException("Invalid color.")
+
         this.xmlEditor["res/$valuesPath/colors.xml"].use { editor ->
             val resourcesNode = editor.file.getElementsByTagName("resources").item(0) as Element
 
@@ -49,7 +48,7 @@ class ThemePatch : ResourcePatch {
 
                 node.textContent = when (node.getAttribute("name")) {
                     "yt_black0", "yt_black1", "yt_black1_opacity95", "yt_black1_opacity98", "yt_black2", "yt_black3",
-                    "yt_black4", "yt_status_bar_background_dark", "material_grey_850" -> darkThemeBackgroundColor
+                    "yt_black4", "yt_status_bar_background_dark", "material_grey_850" -> darkThemeColor
 
                     else -> continue
                 }

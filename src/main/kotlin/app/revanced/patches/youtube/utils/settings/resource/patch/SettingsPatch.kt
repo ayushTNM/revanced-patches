@@ -2,10 +2,7 @@ package app.revanced.patches.youtube.utils.settings.resource.patch
 
 import app.revanced.patcher.annotation.Description
 import app.revanced.patcher.annotation.Name
-import app.revanced.patcher.annotation.Version
 import app.revanced.patcher.data.ResourceContext
-import app.revanced.patcher.patch.PatchResult
-import app.revanced.patcher.patch.PatchResultSuccess
 import app.revanced.patcher.patch.annotations.DependsOn
 import app.revanced.patcher.patch.annotations.Patch
 import app.revanced.patches.shared.patch.settings.AbstractSettingsResourcePatch
@@ -38,13 +35,12 @@ import java.util.concurrent.TimeUnit
     ]
 )
 @YouTubeCompatibility
-@Version("0.0.1")
 class SettingsPatch : AbstractSettingsResourcePatch(
     "youtube/settings",
     "youtube/settings/host",
     true
 ) {
-    override fun execute(context: ResourceContext): PatchResult {
+    override fun execute(context: ResourceContext) {
         super.execute(context)
         contexts = context
 
@@ -70,10 +66,11 @@ class SettingsPatch : AbstractSettingsResourcePatch(
 
                         if (node.nodeName != "integer" || !node.getAttribute("name")
                                 .startsWith("google_play_services_version")
-                        )
-                            continue
+                        ) continue
 
-                        belowAndroid1820 = node.textContent.toInt() <= 232100000
+                        val playServicesVersion = node.textContent.toInt()
+
+                        upward1828 = playServicesVersion >= 232900000
 
                         break
                     }
@@ -174,7 +171,6 @@ class SettingsPatch : AbstractSettingsResourcePatch(
                 .let(::copyResources)
         }
 
-        return PatchResultSuccess()
     }
 
     companion object {
@@ -182,7 +178,7 @@ class SettingsPatch : AbstractSettingsResourcePatch(
         private val threadPoolExecutor = Executors.newFixedThreadPool(THREAD_COUNT)
 
         internal lateinit var contexts: ResourceContext
-        internal var belowAndroid1820: Boolean = false
+        internal var upward1828: Boolean = false
 
         internal fun addPreference(settingArray: Array<String>) {
             contexts.addPreference(settingArray)
